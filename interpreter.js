@@ -1,101 +1,110 @@
 
 const prompt = require("prompt-sync")();
 
-function interpret(ast) {
-  const env = {};
-  const functions = {};
+function interpret(node, env = {}) {
+  switch (node.type) {
+    case "program":
+      for (const stmt of node.body) interpret(stmt, env);
+      break;
 
-  function evalExpr(expr, scope) {
-    if (expr.type === "Literal") return expr.value;
-    if (expr.type === "String") return expr.value;
-    if (expr.type === "CallExpr") return callFunction(expr.name, expr.args, scope);
-    const left = isNaN(expr.left) ? scope[expr.left] : Number(expr.left);
-    const right = isNaN(expr.right) ? scope[expr.right] : Number(expr.right);
-    switch (expr.op) {
-      case "+": return left + right;
-      case "-": return left - right;
-      case "*": return left * right;
-      case "/": return left / right;
-    }
-  }
+    case "function":
+      env[node.name] = { params: node.params, body: node.body };
+      break;
 
-  function evalCond(cond, scope) {
-    const left = isNaN(cond.left) ? scope[cond.left] : Number(cond.left);
-    const right = isNaN(cond.right) ? scope[cond.right] : Number(cond.right);
-    switch (cond.op) {
-      case "<": return left < right;
-      case ">": return left > right;
-      case "==": return left == right;
-    }
-  }
-
-  function execBlock(stmts, scope) {
-    for (const stmt of stmts) {
-      const result = exec(stmt, scope);
-      if (result && result.type === "Return") return result;
-    }
-  }
-
-  function callFunction(name, args, parentScope) {
-    const fn = functions[name];
-    if (!fn) throw new Error("Função não definida: " + name);
-    const fnScope = {};
-    fn.params.forEach((param, index) => {
-      fnScope[param] = isNaN(args[index]) ? parentScope[args[index]] : Number(args[index]);
-    });
-    const result = execBlock(fn.body, fnScope);
-    if (result && result.type === "Return") {
-      return evalExpr(result.value, fnScope);
-    }
-    return null;
-  }
-
-  function exec(stmt, scope = env) {
-    switch (stmt.type) {
-      case "Declaration":
-        scope[stmt.name] = evalExpr(stmt.value, scope);
-        break;
-      case "Print":
-        const val = stmt.value;
-        console.log(val in scope ? scope[val] : val);
-        break;
-      case "Assignment":
-        scope[stmt.name] = evalExpr(stmt.value, scope);
-        break;
-      case "While":
-        while (evalCond(stmt.cond, scope)) execBlock(stmt.body, scope);
-        break;
-      case "If":
-        if (evalCond(stmt.cond, scope)) {
-          execBlock(stmt.thenBody, scope);
-        } else if (stmt.elseBody) {
-          execBlock(stmt.elseBody, scope);
+    case "call":
+      const fn = env[node.id];
+      const local = { ...env };
+      node.args.forEach((arg, idx) => {
+        local[fn.params[idx]] = evaluate(arg, env);
+      });
+      for (const stmt of fn.body) {
+        const result = interpret(stmt, local);
+        if (result && result.return !== undefined) {
+          return result;
         }
-        break;
-      case "For":
-        exec(stmt.init, scope);
-        while (evalCond(stmt.cond, scope)) {
-          execBlock(stmt.body, scope);
-          exec(stmt.inc, scope);
-        }
-        break;
-      case "Function":
-        functions[stmt.name] = stmt;
-        break;
-      case "Call":
-        callFunction(stmt.name, stmt.args, scope);
-        break;
-      case "Return":
-        return stmt;
-      case "Read":
-        const input = prompt(`Digite o valor de ${stmt.name}: `);
-        scope[stmt.name] = isNaN(input) ? input : Number(input);
-        break;
-    }
-  }
+      }
+      break;
 
-  for (const stmt of ast.body) {
-    exec(stmt);
+    case "if":
+      if (evaluate(node.test, env)) {
+        for (const stmt of node.consequent) interpret(stmt, env);
+      } else if (node.alternate) {
+        for (const stmt of node.alternate) interpret(stmt, env);
+      }
+      break;
+
+    case "for":
+      interpret(node.init, env);
+      while (evaluate(node.test, env)) {
+        for (const stmt of node.body) interpret(stmt, env);
+        interpret(node.update, env);
+      }
+      break;
+
+    case "while":
+      while (evaluate(node.test, env)) {
+        for (const stmt of node.body) interpret(stmt, env);
+      }
+      break;
+
+    case "assign":
+      env[node.id] = evaluate(node.expr, env);
+      break;
+
+    case "print":
+      console.log(evaluate(node.value, env));
+      break;
+
+    case "read":
+      const input = prompt(`Digite o valor de ${node.id}: `);
+      env[node.id] = isNaN(input) ? input : Number(input);
+      break;
+
+    case "return":
+      return { return: evaluate(node.argument, env) };
+
+    default:
+      throw new Error("Tipo de instrução desconhecido: " + node.type);
+  }
+}
+
+function evaluate(expr, env) {
+  switch (expr.type) {
+    case "literal":
+      return expr.value;
+
+    case "identifier":
+      return env[expr.name];
+
+    case "binary":
+      const left = evaluate(expr.left, env);
+      const right = evaluate(expr.right, env);
+      switch (expr.operator) {
+        case "+": return left + right;
+        case "-": return left - right;
+        case "*": return left * right;
+        case "/": return left / right;
+        case "%": return left % right;
+        case "==": return left === right;
+        case "!=": return left !== right;
+        case "<": return left < right;
+        case "<=": return left <= right;
+        case ">": return left > right;
+        case ">=": return left >= right;
+        case "&&": return left && right;
+        case "||": return left || right;
+        default: throw new Error("Operador binário desconhecido: " + expr.operator);
+      }
+
+    case "unary":
+      const val = evaluate(expr.right, env);
+      switch (expr.operator) {
+        case "!": return !val;
+        default: throw new Error("Operador unário desconhecido: " + expr.operator);
+      }
+
+    default:
+      throw new Error("Expressão inválida: " + expr.type);
   }
 }
 

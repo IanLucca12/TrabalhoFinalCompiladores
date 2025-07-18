@@ -1,7 +1,7 @@
 
 function tokenize(code) {
   code = code.replace(/\/\/.*$/gm, ""); // Remove comentários
-  const regex = /\s*(\"[^\"]*\"|=>|==|<=|>=|!=|[{}();=<>+\-*/]|[A-Za-z_]\w*|\d+)\s*/g;
+  const regex = /\s*(true|false|&&|\|\||!|==|!=|<=|>=|=>|[{}();=<>+\-*/]|[A-Za-z_]\w*|\d+|"(?:[^"\\]|\\.)*")\s*/g;
   const tokens = [];
   let m;
   while ((m = regex.exec(code)) !== null) {

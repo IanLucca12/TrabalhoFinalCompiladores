@@ -1,15 +1,12 @@
 
-
-fun saudacao(nome) {
-  print "Bem-vindo, ";
-  print nome;
+fun verificar(x) {
+  if (!(x > 10) || x == 0) {
+    print "x é pequeno ou zero";
+  } else {
+    print "x é maior que 10";
+  }
+  return true;
 }
 
-read nome;
-saudacao(nome);
-
-
-for (int i = 1; i <= 3; i = i + 1) {
-  print "Contando:";
-  print i;
-}
+read valor;
+verificar(valor);
