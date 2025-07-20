@@ -51,20 +51,6 @@ node main.js
 ````
 O interpretador irá executar o conteúdo do arquivo input.c.
 
-## Exemplos:
-
-A pasta exemplos/ contém scripts demonstrando diferentes recursos da linguagem:
-
-- hello.c – Hello world
-
-- fibonacci.c – Cálculo de Fibonacci recursivo
-
-- fatorial.c – Fatorial com função recursiva
-
-- ordenacao.c – Ordenação simples de array (simulado)
-
-- busca_binaria.c – Busca binária (simulado)
-
 ## Estrutura do Código:
 
 ``` graphql
